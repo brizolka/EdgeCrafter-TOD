@@ -5,3 +5,11 @@ theme:
 
 plugins:
   - search
+  - mermaid2
+
+nav:
+  - Главная: index.md
+  - Проект:
+      - Описание: project/overview.md
+      - Требования: project/requirements.md
+      - Диаграммы: project/diagrams.md
