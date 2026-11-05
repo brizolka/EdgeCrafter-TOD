@@ -6,6 +6,7 @@ theme:
 plugins:
   - search
   - mermaid2
+  - swagger-ui-tag
 
 nav:
   - Главная: index.md
@@ -13,3 +14,5 @@ nav:
       - Описание: project/overview.md
       - Требования: project/requirements.md
       - Диаграммы: project/diagrams.md
+  - API:
+      - Описание API: api/index.md

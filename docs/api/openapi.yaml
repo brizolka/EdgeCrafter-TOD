@@ -1,0 +1,318 @@
+openapi: 3.0.3
+
+info:
+  title: EdgeCrafter-TOD API
+  description: |
+    API сервиса детекции малых объектов на аэро- и спутниковых снимках.
+
+    Сервис принимает снимок, передаёт его ML-модели детекции и возвращает
+    найденные объекты: класс, координаты рамки и уверенность модели.
+  version: 1.0.0
+
+servers:
+  - url: https://example.com/api/v1
+
+tags:
+  - name: Детекция
+    description: Поиск объектов на снимках
+  - name: Справочники
+    description: Классы объектов и информация о модели
+
+paths:
+  /detections:
+    post:
+      tags: [Детекция]
+      summary: Найти объекты на снимке
+      description: |
+        Загружает аэроснимок и выполняет детекцию объектов.
+        Большие снимки автоматически разбиваются на фрагменты 800×800 пикселей.
+        В ответ попадают только объекты с уверенностью не ниже `scoreThreshold`.
+      operationId: createDetection
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Снимок в формате PNG, JPEG или TIFF, не более 50 МБ.
+                scoreThreshold:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 1
+                  default: 0.3
+                  description: Минимальная уверенность модели для попадания объекта в результат.
+                  example: 0.5
+      responses:
+        '200':
+          description: Детекция выполнена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectionResult'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidImage:
+                  summary: Файл не является изображением
+                  value:
+                    code: INVALID_IMAGE
+                    message: Uploaded file is not a valid image
+                invalidThreshold:
+                  summary: Порог вне диапазона
+                  value:
+                    code: INVALID_THRESHOLD
+                    message: scoreThreshold must be between 0 and 1
+        '413':
+          description: Размер файла превышает 50 МБ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: FILE_TOO_LARGE
+                message: Image size must not exceed 50 MB
+        '415':
+          description: Неподдерживаемый формат файла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNSUPPORTED_FORMAT
+                message: Supported formats are PNG, JPEG and TIFF
+        '503':
+          description: Модель временно недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: MODEL_UNAVAILABLE
+                message: Detection model is temporarily unavailable, try again later
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+
+  /detections/{detectionId}:
+    get:
+      tags: [Детекция]
+      summary: Получить результат детекции
+      description: Возвращает ранее сохранённый результат детекции по его идентификатору.
+      operationId: getDetection
+      parameters:
+        - name: detectionId
+          in: path
+          required: true
+          description: Идентификатор результата детекции.
+          schema:
+            type: integer
+            format: int64
+          example: 1024
+      responses:
+        '200':
+          description: Результат найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectionResult'
+        '404':
+          description: Результат не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: DETECTION_NOT_FOUND
+                message: Detection with id 1024 not found
+
+  /categories:
+    get:
+      tags: [Справочники]
+      summary: Получить список классов объектов
+      description: Возвращает классы объектов, которые умеет находить текущая модель.
+      operationId: listCategories
+      responses:
+        '200':
+          description: Список классов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ObjectCategory'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /models/current:
+    get:
+      tags: [Справочники]
+      summary: Получить информацию о текущей модели
+      description: Возвращает версию и параметры модели, которая сейчас обрабатывает снимки.
+      operationId: getCurrentModel
+      responses:
+        '200':
+          description: Информация о модели
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelInfo'
+        '503':
+          description: Модель не загружена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: MODEL_UNAVAILABLE
+                message: Detection model is not loaded
+
+components:
+  schemas:
+    BoundingBox:
+      type: object
+      description: Рамка объекта в пикселях исходного снимка (формат COCO).
+      required: [x, y, width, height]
+      properties:
+        x:
+          type: number
+          format: float
+          description: Координата левого верхнего угла по горизонтали.
+          example: 412.5
+        y:
+          type: number
+          format: float
+          description: Координата левого верхнего угла по вертикали.
+          example: 230.0
+        width:
+          type: number
+          format: float
+          example: 11.2
+        height:
+          type: number
+          format: float
+          example: 9.8
+
+    DetectedObject:
+      type: object
+      required: [category, confidence, bbox]
+      properties:
+        category:
+          type: string
+          example: vehicle
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.87
+        bbox:
+          $ref: '#/components/schemas/BoundingBox'
+
+    DetectionResult:
+      type: object
+      required: [id, status, modelVersion, objects]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1024
+        status:
+          type: string
+          enum: [completed, queued, failed]
+          example: completed
+        imageWidth:
+          type: integer
+          example: 2400
+        imageHeight:
+          type: integer
+          example: 1600
+        scoreThreshold:
+          type: number
+          format: float
+          example: 0.5
+        modelVersion:
+          type: string
+          example: yolos-tiny-aitod-1.2.0
+        processingTimeMs:
+          type: integer
+          example: 840
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-11-05T10:15:30Z'
+        summary:
+          type: object
+          description: Количество найденных объектов по классам.
+          additionalProperties:
+            type: integer
+          example:
+            vehicle: 37
+            ship: 4
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetectedObject'
+
+    ObjectCategory:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          example: 6
+        name:
+          type: string
+          example: vehicle
+        description:
+          type: string
+          example: Легковые и грузовые автомобили
+
+    ModelInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: hustvl/yolos-tiny
+        version:
+          type: string
+          example: yolos-tiny-aitod-1.2.0
+        inputSize:
+          type: integer
+          description: Размер фрагмента снимка, который подаётся в модель.
+          example: 800
+        categories:
+          type: integer
+          description: Количество поддерживаемых классов.
+          example: 8
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: INVALID_IMAGE
+        message:
+          type: string
+          example: Uploaded file is not a valid image
