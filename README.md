@@ -19,10 +19,3 @@ uv run mkdocs serve
 
 После запуска сайт доступен по адресу <http://127.0.0.1:8000>.
 
-## Загрузка датасета
-
-```bash
-uv run download-aitod
-```
-
-Для работы скрипта нужен токен Kaggle (`~/.kaggle/kaggle.json`).

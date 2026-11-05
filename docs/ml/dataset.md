@@ -12,8 +12,7 @@ AI-TOD-v2 (Tiny Object Detection in Aerial Images, версия 2)
 
 **Источник:**
 Репозиторий авторов [Chasel-Tsui/mmdet-aitod](https://github.com/Chasel-Tsui/mmdet-aitod).
-В проекте используется копия на Kaggle: `ngtininh/ai-tod-v2`
-(загружается командой `uv run download-aitod`).
+В проекте используется копия на Kaggle: `ngtininh/ai-tod-v2`.
 
 **Назначение:**
 Бенчмарк для обучения и оценки детекторов очень маленьких объектов на аэроснимках.
