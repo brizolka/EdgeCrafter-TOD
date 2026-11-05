@@ -1,7 +1,21 @@
 [project]
 name = "edgecrafter-tod"
 version = "0.1.0"
-description = "Add your description here"
+description = "Детекция малых объектов на аэроснимках (AI-TOD-v2)"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "kaggle>=1.7.4.5",
+    "mkdocs>=1.6.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+download-aitod = "EdgeCrafter_TOD.scripts.load_tod:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/EdgeCrafter_TOD"]
+
