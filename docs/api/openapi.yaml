@@ -27,6 +27,9 @@ paths:
         Загружает аэроснимок и выполняет детекцию объектов.
         Большие снимки автоматически разбиваются на фрагменты 800×800 пикселей.
         В ответ попадают только объекты с уверенностью не ниже `scoreThreshold`.
+
+        Если модель временно недоступна, снимок ставится в очередь, и сервис
+        возвращает `202 Accepted` со статусом `queued`.
       operationId: createDetection
       requestBody:
         required: true
@@ -73,6 +76,14 @@ paths:
                   value:
                     code: INVALID_THRESHOLD
                     message: scoreThreshold must be between 0 and 1
+        '202':
+          description: |
+            Модель временно недоступна, снимок поставлен в очередь.
+            Результат можно получить позже через `GET /detections/{detectionId}`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectionAccepted'
         '413':
           description: Размер файла превышает 50 МБ
           content:
@@ -91,15 +102,6 @@ paths:
               example:
                 code: UNSUPPORTED_FORMAT
                 message: Supported formats are PNG, JPEG and TIFF
-        '503':
-          description: Модель временно недоступна
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                code: MODEL_UNAVAILABLE
-                message: Detection model is temporarily unavailable, try again later
         '500':
           description: Внутренняя ошибка сервиса
           content:
@@ -114,7 +116,9 @@ paths:
     get:
       tags: [Детекция]
       summary: Получить результат детекции
-      description: Возвращает ранее сохранённый результат детекции по его идентификатору.
+      description: |
+        Возвращает результат детекции по его идентификатору.
+        Пока снимок находится в очереди (`status: queued`), список объектов пуст.
       operationId: getDetection
       parameters:
         - name: detectionId
@@ -229,9 +233,27 @@ components:
         bbox:
           $ref: '#/components/schemas/BoundingBox'
 
+    DetectionAccepted:
+      type: object
+      description: Подтверждение постановки снимка в очередь на обработку.
+      required: [id, status]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1025
+        status:
+          type: string
+          enum: [queued]
+          example: queued
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-11-05T10:20:00Z'
+
     DetectionResult:
       type: object
-      required: [id, status, modelVersion, objects]
+      required: [id, status]
       properties:
         id:
           type: integer
@@ -253,6 +275,7 @@ components:
           example: 0.5
         modelVersion:
           type: string
+          description: Версия модели; указывается после завершения обработки.
           example: yolos-tiny-aitod-1.2.0
         processingTimeMs:
           type: integer
